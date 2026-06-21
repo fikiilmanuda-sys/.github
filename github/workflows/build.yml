@@ -1,15 +1,32 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
-      # ... step lain seperti setup flutter, java ...
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: '17'
 
-      - name: Fix Launcher Icons        # ← tambah di sini
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.9'
+          channel: stable
+
+      - name: Fix Launcher Icons
         run: |
-          cd project_raw/BaseApk
           sudo apt-get install -y imagemagick
           for dpi in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
             case $dpi in
@@ -19,12 +36,25 @@ jobs:
               xxhdpi) size=144 ;;
               xxxhdpi) size=192 ;;
             esac
-            dir="android/app/src/main/res/mipmap-${dpi}"
+            dir="project_raw/BaseApk/android/app/src/main/res/mipmap-${dpi}"
             mkdir -p "$dir"
             convert -size ${size}x${size} xc:#1a73e8 \
               -fill white -draw "roundrectangle 8,8,$((size-8)),$((size-8)),12,12" \
               "${dir}/ic_launcher.png"
           done
 
-      - name: Build APK                 # ← step build APK kamu
-        run: ...
+      - name: Flutter Pub Get
+        run: |
+          cd project_raw/BaseApk
+          flutter pub get
+
+      - name: Build APK
+        run: |
+          cd project_raw/BaseApk
+          flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: app-release
+          path: project_raw/BaseApk/build/app/outputs/flutter-apk/app-release.apk
